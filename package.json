@@ -1,0 +1,35 @@
+{
+  "name": "qperform-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "build:demo": "vite build --mode demo",
+    "build:prod": "vite build --mode production",
+    "build:check": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "deploy:vercel": "npm run build:demo && vercel --prod",
+    "deploy:netlify": "npm run build:demo && netlify deploy --prod --dir=dist"
+  },
+  "dependencies": {
+    "@azure/msal-browser": "^4.26.1",
+    "@primevue/themes": "^4.4.1",
+    "@vueuse/core": "^14.0.0",
+    "axios": "^1.13.2",
+    "pinia": "^3.0.4",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.4.1",
+    "vue": "^3.5.22",
+    "vue-router": "^4.6.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/tsconfig": "^0.8.1",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.7",
+    "vue-tsc": "^3.1.0"
+  }
+}
