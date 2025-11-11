@@ -106,14 +106,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { usePerformanceFilters } from '../composables/usePerformanceFilters'
-import { fetchMonthlySummary, type MonthlySummaryResponse } from '../services/api'
+import { usePerformanceFilters } from '@/composables/usePerformanceFilters'
+import { fetchMonthlySummary, type MonthlySummaryResponse } from '@/services/api'
 import Button from 'primevue/button'
 import ProgressSpinner from 'primevue/progressspinner'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
-import FilterPopover from '../components/FilterPopover.vue'
+import FilterPopover from '@/components/FilterPopover.vue'
 
 // Shared filters across all performance tabs
 const { filters, filterOptions, setFilters } = usePerformanceFilters()
