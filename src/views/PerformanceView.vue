@@ -46,7 +46,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import Header from '../components/Header.vue'
+import Header from '../components/header.vue'
 import { useUserRole } from '../composables/useUserRole'
 
 const router = useRouter()

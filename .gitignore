@@ -38,3 +38,8 @@ lpt*
 # Claude
 .claude/*
 !.claude/commands
+
+# Local Netlify folder
+.netlify
+
+.vercel
