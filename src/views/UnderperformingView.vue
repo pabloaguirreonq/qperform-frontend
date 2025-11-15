@@ -8,7 +8,7 @@
 
     <!-- Error State -->
     <div v-else-if="error" class="error-state">
-      <i class="pi pi-exclamation-triangle" style="font-size: 2rem; color: #d32f2f"></i>
+      <i class="pi pi-exclamation-triangle" style="font-size: 2rem; color: var(--q-danger)"></i>
       <p>{{ error }}</p>
       <Button label="Retry" @click="loadData" outlined />
     </div>
@@ -97,7 +97,7 @@
                     class="grid-header-cell week-header"
                   >
                     <div class="week-header-content">
-                      <div class="week-title">{{ week.formattedRange }}</div>
+                      <div class="week-title">{{ week.weekRange }}</div>
                       <div class="week-subheader">
                         <div class="sub-col">Weekly Score</div>
                         <div class="sub-col">Action Taken</div>
@@ -207,7 +207,7 @@
           <Column field="avg_score" header="Avg Score" sortable style="min-width: 120px">
             <template #body="slotProps">
               <Tag
-                :value="`${slotProps.data.avg_score.toFixed(1)}%`"
+                :value="formatAvgScore(slotProps.data.avg_score)"
                 :severity="getScoreSeverity(slotProps.data.avg_score)"
               />
             </template>
@@ -237,6 +237,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useUserRole } from '../composables/useUserRole'
+import { useRoleBasedFiltering } from '../composables/useRoleBasedFiltering'
 import { usePerformanceFilters } from '../composables/usePerformanceFilters'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
@@ -264,8 +265,16 @@ import type {
   ClientSummaryData
 } from '../types'
 
-// User permissions
-const { canTakeAction } = useUserRole()
+// User role and permissions with enhanced Microsoft API integration
+const { role, user, canTakeAction, assignedClients, teamMembers } = useUserRole()
+
+// Role-based data filtering
+const roleFiltering = useRoleBasedFiltering({
+  role,
+  userEmail: computed(() => (user.value as any)?.email || null),
+  assignedClients,
+  teamMembers
+})
 
 // Shared filters across all performance tabs
 const { filters, filterOptions, filtersInitialized, setFilters, setFilterOptions, markFiltersInitialized } = usePerformanceFilters()
@@ -293,16 +302,19 @@ const selectedRecommendation = ref({ action: '', isCritical: false, notes: '' })
 
 // Computed: Employee list
 const employeeList = computed(() => {
-  return Array.from(groupedData.value.keys()).map(key => {
-    const weeksMap = groupedData.value.get(key)
-    const firstRecord = weeksMap ? Array.from(weeksMap.values())[0]?.[0] : null
+  return Array.from(groupedData.value.keys())
+    .filter(key => key && key.trim() !== '') // Filter out empty keys
+    .map(key => {
+      const weeksMap = groupedData.value.get(key)
+      const firstRecord = weeksMap ? Array.from(weeksMap.values())[0]?.[0] : null
 
-    return {
-      id: key,
-      name: firstRecord?.agent_name || firstRecord?.agent_email?.split('@')[0] || 'Unknown',
-      email: firstRecord?.agent_email || key
-    }
-  })
+      return {
+        id: key,
+        name: firstRecord?.agent_name || firstRecord?.agent_email?.split('@')[0] || key.split('@')[0] || 'Unknown',
+        email: firstRecord?.agent_email || key
+      }
+    })
+    .filter(emp => emp.email && emp.email.trim() !== '') // Filter out employees without valid emails
 })
 
 // Computed: Pagination
@@ -407,7 +419,15 @@ const getAgentInitials = (agentKey: string) => {
 }
 
 const getAvatarColor = (agentKey: string) => {
-  const colors = ['#005a9e', '#0078d4', '#8764b8', '#ca5010', '#038387', '#8764b8']
+  // Using QSoftware color palette for avatars
+  const colors = [
+    'var(--q-secondary)',      // Dark Teal
+    'var(--q-primary)',         // OnQ Orange
+    'var(--q-info)',           // Blue
+    'var(--q-secondary-light)', // Light Teal
+    'var(--q-primary-dark)',    // Dark Orange
+    '#6366F1'                  // Purple accent
+  ]
   const index = agentKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
   return colors[index]
 }
@@ -467,6 +487,11 @@ const getMonthlyResults = (agentKey: string) => {
   return calculateAgentMonthlyResults(weeksMap, agentEmail, actionLogData.value)
 }
 
+const formatAvgScore = (score: number): string => {
+  if (typeof score !== 'number' || isNaN(score)) return '0.0%'
+  return `${score.toFixed(1)}%`
+}
+
 const getScoreSeverity = (score: number): 'success' | 'warning' | 'danger' => {
   if (score >= 90) return 'success'
   if (score >= 75) return 'warning'
@@ -506,7 +531,7 @@ const handleActionSuccess = () => {
   loadData()
 }
 
-// Data loading
+// Data loading with role-based filtering
 const loadData = async () => {
   if (!filters.value.month || !filters.value.year) {
     loading.value = false
@@ -523,12 +548,20 @@ const loadData = async () => {
       fetchClientSummary(filters.value)
     ])
 
-    const grouped = groupByWeek(performanceData)
+    // Apply role-based filtering to performance data
+    const filteredPerformanceData = roleFiltering.filterPerformanceData(performanceData)
+    console.log(`🔒 Role-based filtering applied: ${performanceData.length} → ${filteredPerformanceData.length} records`)
 
-    rawData.value = performanceData
+    // Apply role-based filtering to client summary
+    const filteredClientSummary = roleFiltering.filterClientSummary(clientData)
+    console.log(`🔒 Client summary filtered: ${clientData.length} → ${filteredClientSummary.length} clients`)
+
+    const grouped = groupByWeek(filteredPerformanceData)
+
+    rawData.value = filteredPerformanceData
     groupedData.value = grouped
     actionLogData.value = logData
-    clientSummaryData.value = clientData
+    clientSummaryData.value = filteredClientSummary
 
     loading.value = false
   } catch (err) {
@@ -618,13 +651,14 @@ watch(filters, (newFilters) => {
 .no-data {
   text-align: center;
   padding: 60px 20px;
-  color: #666;
+  color: var(--q-text-secondary);
 }
 
 .no-data small {
   display: block;
   margin-top: 8px;
   font-size: 14px;
+  color: var(--q-text-light);
 }
 
 /* Pagination Header */
@@ -638,14 +672,15 @@ watch(filters, (newFilters) => {
 
 .pagination-info {
   font-size: 14px;
-  color: #666;
+  color: var(--q-text-secondary);
 }
 
 /* Grid Card */
 .data-grid-card {
-  background: white;
-  border: 1px solid #e5e5e5;
+  background: var(--q-bg-primary);
+  border: 1px solid var(--q-border);
   border-radius: 8px;
+  box-shadow: var(--q-shadow-sm);
 }
 
 .grid-scroll-container {
@@ -667,8 +702,8 @@ watch(filters, (newFilters) => {
 
 /* Header Cells */
 .grid-header-cell {
-  background-color: #f5f5f5;
-  border: 1px solid #e0e0e0;
+  background-color: var(--q-bg-secondary);
+  border: 1px solid var(--q-border);
   padding: 16px 12px;
   font-weight: 600;
   font-size: 14px;
@@ -699,21 +734,21 @@ watch(filters, (newFilters) => {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid #d0d0d0;
+  border-top: 1px solid var(--q-border-dark);
 }
 
 .sub-col {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  color: #555;
+  color: var(--q-text-secondary);
 }
 
 /* Data Cells */
 .grid-cell {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--q-border);
   padding: 12px;
-  background: white;
+  background: var(--q-bg-primary);
   min-height: 70px;
 }
 
@@ -721,7 +756,7 @@ watch(filters, (newFilters) => {
   position: sticky;
   left: 0;
   z-index: 5;
-  background: white;
+  background: var(--q-bg-primary);
 }
 
 .employee-info {
@@ -748,7 +783,7 @@ watch(filters, (newFilters) => {
 
 .employee-email {
   font-size: 12px;
-  color: #666;
+  color: var(--q-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -785,11 +820,11 @@ watch(filters, (newFilters) => {
 }
 
 .action-yes {
-  color: #2e7d32; /* Green - matches React */
+  color: var(--q-success);
 }
 
 .action-no {
-  color: #f57c00; /* Orange - matches React (not red) */
+  color: var(--q-warning);
 }
 
 .empty-week {
@@ -800,7 +835,7 @@ watch(filters, (newFilters) => {
 
 .empty-week .score-section,
 .empty-week .action-section {
-  color: #999;
+  color: var(--q-text-light);
   font-size: 12px;
 }
 
@@ -809,7 +844,7 @@ watch(filters, (newFilters) => {
   position: sticky;
   right: 0;
   z-index: 5;
-  background: white;
+  background: var(--q-bg-primary);
 }
 
 .monthly-results {
@@ -830,12 +865,12 @@ watch(filters, (newFilters) => {
 }
 
 .result-label {
-  color: #666;
+  color: var(--q-text-secondary);
   font-weight: 500;
 }
 
 .result-value {
-  color: #333;
+  color: var(--q-text-primary);
   font-weight: 600;
   font-size: 14px;
 }

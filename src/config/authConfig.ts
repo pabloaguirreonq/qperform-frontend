@@ -46,7 +46,7 @@ export const msalConfig: Configuration = {
 // Add scopes for Microsoft Graph API and Dataverse
 export const loginRequest = {
   scopes: ['User.Read'],
-  prompt: 'select_account', // Allow user to select account each time
+  prompt: 'select_account', // Allow user to select account
 }
 
 // Dataverse API scopes

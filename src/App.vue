@@ -34,13 +34,8 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const handleEnterDashboard = async () => {
-  // If not using mock auth, trigger Microsoft login first
-  const useMockAuth = import.meta.env.VITE_USE_MOCK_AUTH === 'true'
-
-  if (!useMockAuth) {
-    // For Microsoft auth, the authenticate() function will handle the popup login
-    authStore.appState = 'authenticating'
-  }
+  // Set authenticating state while verifying user
+  authStore.appState = 'authenticating'
 
   await authStore.authenticate()
 
@@ -50,12 +45,41 @@ const handleEnterDashboard = async () => {
 }
 
 onMounted(async () => {
-  // Check if we have a token in the URL (redirected from backend)
-  const { verifyTokenFromUrl } = await import('./services/authService')
-  const tokenVerified = await verifyTokenFromUrl()
+  // Handle Microsoft redirect response (if user just logged in)
+  const { handleRedirectResponse, checkExistingSession } = await import('./services/authService')
 
-  if (tokenVerified) {
-    // Token was verified, authenticate the user
+  // Check if we're in mock mode
+  const AUTH_MODE = import.meta.env.VITE_AUTH_MODE || 'qsoftware'
+
+  // In mock mode, automatically authenticate without showing welcome screen
+  if (AUTH_MODE === 'mock') {
+    console.log('🔧 Mock mode detected - Auto-authenticating and bypassing login...')
+    authStore.appState = 'authenticating'
+    await authStore.authenticate()
+    if (authStore.isAuthorized) {
+      router.push('/performance')
+      return
+    }
+  }
+
+  // First, handle any redirect response from Microsoft
+  const redirectHandled = await handleRedirectResponse()
+
+  if (redirectHandled) {
+    // User just logged in via redirect, authenticate them
+    authStore.appState = 'authenticating'
+    await authStore.authenticate()
+    if (authStore.isAuthorized) {
+      router.push('/performance')
+      return
+    }
+  }
+
+  // Check if user has an existing MSAL session
+  const hasSession = await checkExistingSession()
+
+  if (hasSession) {
+    // User is already logged in, authenticate them
     await authStore.authenticate()
     if (authStore.isAuthorized) {
       router.push('/performance')
@@ -71,7 +95,7 @@ onMounted(async () => {
 <style scoped>
 .app-container {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--q-bg-secondary);
 }
 
 .authenticating-screen {
@@ -81,17 +105,18 @@ onMounted(async () => {
   align-items: center;
   min-height: 100vh;
   gap: 16px;
+  background-color: var(--q-bg-primary);
 }
 
 .authenticating-text {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #333;
+  color: var(--q-text-primary);
   margin: 0;
 }
 
 .authenticating-subtext {
-  color: #666;
+  color: var(--q-text-secondary);
   margin: 0;
 }
 </style>

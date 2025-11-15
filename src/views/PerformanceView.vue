@@ -53,7 +53,7 @@ const router = useRouter()
 const { role, user, canTakeAction, receivesNotifications } = useUserRole()
 
 const currentUser = computed(() => ({
-  name: user.value?.displayName || 'User',
+  name: (user.value as any)?.displayName || 'User',
   notifications: 3 // TODO: Get actual notification count
 }))
 
@@ -79,7 +79,7 @@ const handleGoToWelcome = () => {
 <style scoped>
 .performance-view {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--q-bg-secondary);
 }
 
 .performance-content-wrapper {
@@ -95,11 +95,11 @@ const handleGoToWelcome = () => {
   margin: 0 0 4px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--q-text-primary);
 }
 
 .role-message {
-  color: #005a9e;
+  color: var(--q-secondary);
   margin: 0;
   font-size: 14px;
   font-weight: 600;
@@ -108,28 +108,30 @@ const handleGoToWelcome = () => {
 .tab-navigation {
   display: flex;
   gap: 8px;
-  border-bottom: 2px solid #e5e5e5;
+  border-bottom: 2px solid var(--q-border);
   margin-bottom: 20px;
 }
 
 .tab-link {
   padding: 12px 20px;
   text-decoration: none;
-  color: #666;
+  color: var(--q-text-secondary);
   border-bottom: 3px solid transparent;
   margin-bottom: -2px;
   transition: all 0.2s;
   font-weight: 500;
+  border-radius: 6px 6px 0 0;
 }
 
 .tab-link:hover {
-  color: #005a9e;
-  background-color: #f5f5f5;
+  color: var(--q-primary);
+  background-color: var(--q-primary-lighter);
 }
 
 .tab-link.active {
-  color: #005a9e;
-  border-bottom-color: #005a9e;
+  color: var(--q-primary);
+  border-bottom-color: var(--q-primary);
+  background-color: var(--q-bg-primary);
 }
 
 .performance-content {

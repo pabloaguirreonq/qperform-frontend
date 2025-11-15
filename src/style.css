@@ -8,12 +8,59 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #1a1a1a;
-  background-color: #f5f5f5;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* QSoftware Brand Colors - New Palette */
+  --q-primary: #F7941D; /* OnQ Orange/Tangerine */
+  --q-primary-dark: #E67E0D;
+  --q-primary-light: #FFA940;
+  --q-primary-lighter: #FFE4CC;
+
+  --q-secondary: #1B4F5C; /* Dark Teal/Navy */
+  --q-secondary-dark: #0F3842;
+  --q-secondary-light: #2A6B7C;
+  --q-secondary-lighter: #D4E5EA;
+
+  /* Neutral Colors */
+  --q-dark: #1a1a1a;
+  --q-text-primary: #2C3E50;
+  --q-text-secondary: #5A6C7D;
+  --q-text-light: #8B9DA9;
+
+  /* Background Colors */
+  --q-bg-primary: #FFFFFF;
+  --q-bg-secondary: #F8F9FA;
+  --q-bg-tertiary: #E8EBED;
+  --q-bg-dark: #1B4F5C;
+
+  /* Accent Colors */
+  --q-success: #22C55E;
+  --q-success-light: #86EFAC;
+  --q-warning: #F59E0B;
+  --q-warning-light: #FCD34D;
+  --q-danger: #EF4444;
+  --q-danger-light: #FCA5A5;
+  --q-info: #3B82F6;
+  --q-info-light: #93C5FD;
+
+  /* Border Colors */
+  --q-border: #E2E8F0;
+  --q-border-dark: #CBD5E1;
+  --q-border-light: #F1F5F9;
+
+  /* Shadow Colors */
+  --q-shadow-sm: 0 1px 2px 0 rgba(27, 79, 92, 0.05);
+  --q-shadow: 0 1px 3px 0 rgba(27, 79, 92, 0.1), 0 1px 2px -1px rgba(27, 79, 92, 0.1);
+  --q-shadow-md: 0 4px 6px -1px rgba(27, 79, 92, 0.1), 0 2px 4px -2px rgba(27, 79, 92, 0.1);
+  --q-shadow-lg: 0 10px 15px -3px rgba(27, 79, 92, 0.1), 0 4px 6px -4px rgba(27, 79, 92, 0.1);
+  --q-shadow-xl: 0 20px 25px -5px rgba(27, 79, 92, 0.1), 0 8px 10px -6px rgba(27, 79, 92, 0.1);
+
+  /* Apply defaults */
+  color: var(--q-text-primary);
+  background-color: var(--q-bg-secondary);
 }
 
 body {

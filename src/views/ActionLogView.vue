@@ -6,7 +6,7 @@
     </div>
 
     <div v-else-if="error" class="error-state">
-      <i class="pi pi-exclamation-triangle" style="font-size: 2rem; color: #d32f2f"></i>
+      <i class="pi pi-exclamation-triangle" style="font-size: 2rem; color: var(--q-danger)"></i>
       <p>{{ error }}</p>
       <Button label="Retry" @click="loadActionLog" outlined />
     </div>
@@ -132,15 +132,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { useUserRole } from '../composables/useUserRole'
 import { usePerformanceFilters } from '../composables/usePerformanceFilters'
-import { fetchActionLog, type ActionLog } from '../services/api'
+import { fetchActionLog } from '../services/api'
+import type { ActionLog } from '../types'
 import Button from 'primevue/button'
 import ProgressSpinner from 'primevue/progressspinner'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
 import FilterPopover from '../components/FilterPopover.vue'
+
+// User role and permissions
+const { role, user, assignedClients, teamMembers } = useUserRole()
 
 // Shared filters across all performance tabs
 const { filters, filterOptions, setFilters } = usePerformanceFilters()
@@ -150,16 +155,45 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const allActionLogs = ref<ActionLog[]>([])
 
-// Filtered action log based on month/year
+// Check if user has full access (Directors and AVPs)
+const hasFullAccess = computed(() => {
+  return role.value === 'Director' || role.value === 'AVP'
+})
+
+// Filtered action log based on month/year and role-based access
 const actionLog = computed(() => {
+  let filtered = allActionLogs.value
+
+  // Apply role-based filtering
+  if (!hasFullAccess.value && role.value) {
+    const teamEmails = teamMembers.value.map(m => m.email?.toLowerCase()).filter(Boolean) as string[]
+    const clientFilter = assignedClients.value.map(c => c.toLowerCase())
+
+    filtered = filtered.filter((action: ActionLog) => {
+      // Agents see only their own actions
+      if (role.value === 'Agent' && user.value) {
+        return action.agent_email.toLowerCase() === (user.value as any)?.email?.toLowerCase()
+      }
+
+      // Managers, Supervisors, Team Leads see actions for their teams or clients
+      const matchesTeam = teamEmails.includes(action.agent_email.toLowerCase())
+      const matchesClient = clientFilter.length === 0 || clientFilter.includes(action.client.toLowerCase())
+
+      return matchesTeam || matchesClient
+    })
+
+    console.log(`🔒 Action log filtered by role: ${allActionLogs.value.length} → ${filtered.length} records`)
+  }
+
+  // Apply month/year filter
   if (!filters.value.month || !filters.value.year) {
-    return allActionLogs.value
+    return filtered
   }
 
   const selectedMonth = filters.value.month.trim()
   const selectedYear = parseInt(filters.value.year)
 
-  return allActionLogs.value.filter(action => {
+  return filtered.filter((action: ActionLog) => {
     if (!action.week_start_date) return false
 
     const actionDate = new Date(action.week_start_date)
@@ -266,16 +300,17 @@ onMounted(() => {
 }
 
 .table-section {
-  background: white;
-  border: 1px solid #e5e5e5;
+  background: var(--q-bg-primary);
+  border: 1px solid var(--q-border);
   border-radius: 8px;
   padding: 24px;
+  box-shadow: var(--q-shadow-sm);
 }
 
 .no-data {
   text-align: center;
   padding: 40px;
-  color: #666;
+  color: var(--q-text-secondary);
   font-size: 14px;
   margin: 0;
 }
@@ -287,7 +322,7 @@ onMounted(() => {
 }
 
 .agent-cell small {
-  color: #666;
+  color: var(--q-text-secondary);
   font-size: 12px;
 }
 
@@ -302,7 +337,7 @@ onMounted(() => {
 }
 
 .week-cell small {
-  color: #666;
+  color: var(--q-text-secondary);
 }
 
 :deep(.text-right) {
@@ -315,7 +350,7 @@ onMounted(() => {
 
 :deep(.p-datatable .p-datatable-thead > tr > th) {
   padding: 10px 12px;
-  background-color: #f5f5f5;
+  background-color: var(--q-bg-secondary);
   font-weight: 600;
 }
 </style>

@@ -11,8 +11,16 @@ export interface PerformanceFlag {
  * Great (>101% Production, >100% QA): Green
  * Good: Light Green
  * Normal: Yellow
- * Low: Orange
+ * Low: Orange (QSoftware Primary)
  * Critical: Red
+ *
+ * Note: Colors match CSS variables in src/style.css
+ * - Success: var(--q-success) #22C55E
+ * - Success Light: var(--q-success-light) #86EFAC
+ * - Warning: var(--q-warning) #F59E0B
+ * - Primary: var(--q-primary) #F7941D
+ * - Danger: var(--q-danger) #EF4444
+ * - Text Light: var(--q-text-light) #8B9DA9
  */
 export function getFlagConfig(flag: string): PerformanceFlag {
   const flagUpper = flag?.toUpperCase() || '';
@@ -22,37 +30,37 @@ export function getFlagConfig(flag: string): PerformanceFlag {
       return {
         label: 'Great',
         severity: 'success',
-        color: '#22c55e' // Green
+        color: '#22C55E' // QSoftware Success Green (var(--q-success))
       };
     case 'GOOD':
       return {
         label: 'Good',
         severity: 'info',
-        color: '#86efac' // Light Green
+        color: '#86EFAC' // QSoftware Success Light (var(--q-success-light))
       };
     case 'NORMAL':
       return {
         label: 'Normal',
         severity: 'warning',
-        color: '#eab308' // Yellow
+        color: '#F59E0B' // QSoftware Warning Yellow (var(--q-warning))
       };
     case 'LOW':
       return {
         label: 'Low',
         severity: 'warning',
-        color: '#f97316' // Orange
+        color: '#F7941D' // QSoftware Primary Orange (var(--q-primary))
       };
     case 'CRITICAL':
       return {
         label: 'Critical',
         severity: 'danger',
-        color: '#ef4444' // Red
+        color: '#EF4444' // QSoftware Danger Red (var(--q-danger))
       };
     default:
       return {
         label: flag || 'N/A',
         severity: 'secondary',
-        color: '#6b7280' // Gray
+        color: '#8B9DA9' // QSoftware Text Light Gray (var(--q-text-light))
       };
   }
 }

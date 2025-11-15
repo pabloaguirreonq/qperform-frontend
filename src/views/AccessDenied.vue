@@ -3,7 +3,7 @@
     <Card class="access-denied-card">
       <template #header>
         <div class="access-denied-icon">
-          <i class="pi pi-lock" style="font-size: 4rem; color: #e74c3c"></i>
+          <i class="pi pi-lock" style="font-size: 4rem; color: var(--q-danger)"></i>
         </div>
       </template>
       <template #title>
@@ -73,7 +73,7 @@ const emit = defineEmits<{
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--q-bg-secondary);
   padding: 2rem;
 }
 
@@ -88,7 +88,7 @@ const emit = defineEmits<{
 }
 
 .user-info {
-  background: #f8f9fa;
+  background: var(--q-bg-secondary);
   padding: 1rem;
   border-radius: 8px;
   margin: 1rem 0;
@@ -111,7 +111,7 @@ const emit = defineEmits<{
 .contact-info {
   margin-top: 1.5rem;
   padding: 1rem;
-  background: #e3f2fd;
+  background: var(--q-secondary-lighter);
   border-radius: 8px;
   text-align: center;
 }

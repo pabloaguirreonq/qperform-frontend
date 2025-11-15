@@ -8,6 +8,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/WelcomeView.vue')
   },
   {
+    path: '/auth/callback',
+    name: 'oauth-callback',
+    component: () => import('../views/OAuthCallbackView.vue')
+  },
+  {
     path: '/performance',
     component: () => import('../views/PerformanceView.vue'),
     children: [

@@ -24,8 +24,19 @@ dist-ssr
 *.sw?
 
 # Environment files (keep examples)
+# Ignore decrypted .env files (contains sensitive data)
+.env
 .env.local
 .env.*.local
+
+# Keep encrypted .env files (safe to commit)
+!.env.encrypted
+!.env.example
+!.env.demo
+!.env.production
+
+# Never commit password files
+ENCRYPTION_PASSWORDS.txt
 
 # Windows reserved names
 nul

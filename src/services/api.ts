@@ -20,10 +20,17 @@ const apiClient: AxiosInstance = axios.create({
   timeout: 30000,
 })
 
-// Request interceptor for adding auth tokens if needed
+// Request interceptor for adding auth tokens
 apiClient.interceptors.request.use(
-  (config) => {
-    // Add auth token here if needed
+  async (config) => {
+    // Get access token from auth service
+    const { getAccessToken } = await import('./authService')
+    const token = await getAccessToken()
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
     return config
   },
   (error) => {
@@ -34,7 +41,36 @@ apiClient.interceptors.request.use(
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config
+
+    // Handle 401 Unauthorized errors (token expired or invalid)
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      try {
+        // Try to refresh the token using QSoftware service
+        const QSoftware = await import('./qsoftwareService')
+        const refreshToken = QSoftware.getStoredRefreshToken()
+
+        if (refreshToken) {
+          const newToken = await QSoftware.refreshAccessToken(refreshToken)
+          if (newToken) {
+            // Retry the original request with new token
+            originalRequest.headers.Authorization = `Bearer ${newToken}`
+            return apiClient(originalRequest)
+          }
+        }
+
+        // If refresh failed, redirect to login
+        console.error('Token refresh failed. User needs to login again.')
+        // You can emit an event here to trigger logout
+        window.dispatchEvent(new CustomEvent('auth:session-expired'))
+      } catch (refreshError) {
+        console.error('Error refreshing token:', refreshError)
+      }
+    }
+
     console.error('API Error:', error.response?.data || error.message)
     return Promise.reject(error)
   }

@@ -6,7 +6,7 @@
     </div>
 
     <div v-else-if="error" class="error-state">
-      <i class="pi pi-exclamation-triangle" style="font-size: 2rem; color: #d32f2f"></i>
+      <i class="pi pi-exclamation-triangle" style="font-size: 2rem; color: var(--q-danger)"></i>
       <p>{{ error }}</p>
       <Button label="Retry" @click="loadData" outlined />
     </div>
@@ -106,8 +106,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useUserRole } from '../composables/useUserRole'
 import { usePerformanceFilters } from '../composables/usePerformanceFilters'
-import { fetchMonthlySummary, type MonthlySummaryResponse } from '../services/api'
+import { fetchMonthlySummary } from '../services/api'
+import type { MonthlySummaryResponse } from '../types'
 import Button from 'primevue/button'
 import ProgressSpinner from 'primevue/progressspinner'
 import DataTable from 'primevue/datatable'
@@ -115,19 +117,69 @@ import Column from 'primevue/column'
 import Tag from 'primevue/tag'
 import FilterPopover from '../components/FilterPopover.vue'
 
+// User role and permissions
+const { role, assignedClients } = useUserRole()
+
 // Shared filters across all performance tabs
 const { filters, filterOptions, setFilters } = usePerformanceFilters()
 
 // State
 const loading = ref(true)
 const error = ref<string | null>(null)
-const summaryData = ref<MonthlySummaryResponse>({
+const rawSummaryData = ref<MonthlySummaryResponse>({
   overall: {
     total_aftes: 0,
     underperformers: 0,
     avg_score: 0
   },
   details: []
+})
+
+// Check if user has full access (Directors and AVPs)
+const hasFullAccess = computed(() => {
+  return role.value === 'Director' || role.value === 'AVP'
+})
+
+// Apply role-based filtering to summary data
+const summaryData = computed(() => {
+  if (hasFullAccess.value || !role.value || role.value === 'Unauthorized') {
+    return rawSummaryData.value
+  }
+
+  // Filter details by assigned clients
+  const clientFilter = assignedClients.value.map(c => c.toLowerCase())
+
+  if (clientFilter.length === 0) {
+    return {
+      overall: {
+        total_aftes: 0,
+        underperformers: 0,
+        avg_score: 0
+      },
+      details: []
+    }
+  }
+
+  const filteredDetails = rawSummaryData.value.details.filter((detail: any) =>
+    clientFilter.includes(detail.client.toLowerCase())
+  )
+
+  // Recalculate overall stats based on filtered details
+  const totalAftes = filteredDetails.reduce((sum: number, d: any) => sum + d.total_aftes, 0)
+  const avgScore = filteredDetails.length > 0
+    ? filteredDetails.reduce((sum: number, d: any) => sum + d.avg_score, 0) / filteredDetails.length
+    : 0
+
+  console.log(`🔒 Monthly summary filtered: ${rawSummaryData.value.details.length} → ${filteredDetails.length} clients`)
+
+  return {
+    overall: {
+      total_aftes: totalAftes,
+      underperformers: Math.floor(totalAftes * (1 - avgScore / 100)), // Approximate
+      avg_score: Math.round(avgScore * 10) / 10
+    },
+    details: filteredDetails
+  }
 })
 
 const underperformerRate = computed(() => {
@@ -158,7 +210,7 @@ const loadData = async () => {
 
   try {
     const data = await fetchMonthlySummary(filters.value)
-    summaryData.value = data
+    rawSummaryData.value = data
     loading.value = false
   } catch (err) {
     console.error('Error loading monthly summary:', err)
@@ -199,12 +251,12 @@ watch(filters, (newFilters) => {
   margin: 0 0 8px 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--q-text-primary);
 }
 
 .description {
   margin: 0;
-  color: #666;
+  color: var(--q-text-secondary);
   font-size: 14px;
 }
 
@@ -226,13 +278,14 @@ watch(filters, (newFilters) => {
 }
 
 .summary-card {
-  background: white;
-  border: 1px solid #e5e5e5;
+  background: var(--q-bg-primary);
+  border: 1px solid var(--q-border);
   border-radius: 8px;
   padding: 20px;
   display: flex;
   gap: 16px;
   align-items: center;
+  box-shadow: var(--q-shadow-sm);
 }
 
 .card-icon {
@@ -242,45 +295,46 @@ watch(filters, (newFilters) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #e3f2fd;
-  color: #1976d2;
+  background-color: var(--q-secondary-lighter);
+  color: var(--q-secondary);
   font-size: 24px;
 }
 
 .card-icon.warning {
-  background-color: #fff3e0;
-  color: #f57c00;
+  background-color: var(--q-primary-lighter);
+  color: var(--q-primary-dark);
 }
 
 .card-icon.success {
-  background-color: #e8f5e9;
-  color: #388e3c;
+  background-color: rgba(34, 197, 94, 0.1);
+  color: var(--q-success);
 }
 
 .card-icon.info {
-  background-color: #e3f2fd;
-  color: #1976d2;
+  background-color: var(--q-secondary-lighter);
+  color: var(--q-info);
 }
 
 .card-content h3 {
   margin: 0 0 4px 0;
   font-size: 14px;
   font-weight: 500;
-  color: #666;
+  color: var(--q-text-secondary);
 }
 
 .card-value {
   margin: 0;
   font-size: 24px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--q-text-primary);
 }
 
 .table-section {
-  background: white;
-  border: 1px solid #e5e5e5;
+  background: var(--q-bg-primary);
+  border: 1px solid var(--q-border);
   border-radius: 8px;
   padding: 24px;
+  box-shadow: var(--q-shadow-sm);
 }
 
 .table-section h3 {
@@ -292,7 +346,7 @@ watch(filters, (newFilters) => {
 .no-data {
   text-align: center;
   padding: 40px;
-  color: #666;
+  color: var(--q-text-secondary);
   font-size: 14px;
   margin: 0;
 }

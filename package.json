@@ -4,14 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "build:demo": "vite build --mode demo",
-    "build:prod": "vite build --mode production",
-    "build:check": "vue-tsc -b && vite build",
+    "dev": "node scripts/load-env.js && vite",
+    "build": "node scripts/load-env.js && vue-tsc -b && vite build",
+    "build:demo": "node scripts/load-env.js && vite build --mode demo",
+    "build:prod": "node scripts/load-env.js && vite build --mode production",
+    "build:check": "node scripts/load-env.js && vue-tsc -b && vite build",
     "preview": "vite preview",
     "deploy:vercel": "npm run build:demo && vercel --prod",
-    "deploy:netlify": "npm run build:demo && netlify deploy --prod --dir=dist"
+    "deploy:netlify": "npm run build:demo && netlify deploy --prod --dir=dist",
+    "env:encrypt": "node scripts/env-encryption.js encrypt",
+    "env:decrypt": "node scripts/env-encryption.js decrypt"
   },
   "dependencies": {
     "@azure/msal-browser": "^4.26.1",

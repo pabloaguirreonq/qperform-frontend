@@ -1,14 +1,26 @@
 // Authentication service for QPerform
-// Uses QSoftware backend authentication (same as QClock, QTime, etc.)
+// Uses QSoftware API for authentication with Microsoft SSO fallback
 import type { UserProfile, UserRole, UserPermissions } from '../types'
+import { PublicClientApplication } from '@azure/msal-browser'
+import { msalConfig, loginRequest } from '../config/authConfig'
+import * as QSoftware from './qsoftwareService'
 
-// Mock authentication for development
-const USE_MOCK_AUTH = import.meta.env.VITE_USE_MOCK_AUTH === 'true'
+// Authentication mode: 'qsoftware' (default), 'microsoft' (fallback), or 'mock' (development)
+const AUTH_MODE = import.meta.env.VITE_AUTH_MODE || 'qsoftware'
+const MOCK_USER_ROLE = import.meta.env.VITE_MOCK_USER_ROLE || 'director'
 
-// QSoftware backend API URL
-const QSOFTWARE_API_URL = import.meta.env.VITE_QSOFTWARE_API_URL || 'https://api.qsoftware.cloud/api'
+// Initialize MSAL instance
+let msalInstance: PublicClientApplication | null = null
 
-// Token storage key
+async function getMsalInstance(): Promise<PublicClientApplication> {
+  if (!msalInstance) {
+    msalInstance = new PublicClientApplication(msalConfig)
+    await msalInstance.initialize()
+  }
+  return msalInstance
+}
+
+// Token storage key (kept for potential future use)
 const ACCESS_TOKEN_KEY = 'qperform_access_token'
 
 // Authorized job titles
@@ -29,6 +41,59 @@ export const MIS_CONTACT = {
   email: 'ONQ.PowerBI.MIS@onqoc.com',
   name: 'MIS Team',
   role: 'Administrator',
+}
+
+// Mock user profiles for development
+const MOCK_USERS: Record<string, UserProfile> = {
+  director: {
+    id: 'mock-director-001',
+    email: 'mock.director@onqoc.com',
+    displayName: 'Mock Director',
+    jobTitle: 'Director',
+    department: 'Development Team',
+  },
+  avp: {
+    id: 'mock-avp-001',
+    email: 'mock.avp@onqoc.com',
+    displayName: 'Mock AVP',
+    jobTitle: 'Assistant Vice President',
+    department: 'Development Team',
+  },
+  manager: {
+    id: 'mock-manager-001',
+    email: 'mock.manager@onqoc.com',
+    displayName: 'Mock Manager',
+    jobTitle: 'Manager',
+    department: 'Development Team',
+  },
+  supervisor: {
+    id: 'mock-supervisor-001',
+    email: 'mock.supervisor@onqoc.com',
+    displayName: 'Mock Supervisor',
+    jobTitle: 'Supervisor',
+    department: 'Development Team',
+  },
+  team_lead: {
+    id: 'mock-lead-001',
+    email: 'mock.lead@onqoc.com',
+    displayName: 'Mock Team Lead',
+    jobTitle: 'Team Lead',
+    department: 'Development Team',
+  },
+  agent: {
+    id: 'mock-agent-001',
+    email: 'mock.agent@onqoc.com',
+    displayName: 'Mock Agent',
+    jobTitle: 'Agent',
+    department: 'Development Team',
+  },
+  unauthorized: {
+    id: 'mock-unauthorized-001',
+    email: 'mock.unauthorized@onqoc.com',
+    displayName: 'Mock Unauthorized User',
+    jobTitle: 'Intern',
+    department: 'Development Team',
+  },
 }
 
 /**
@@ -53,32 +118,97 @@ export function deleteAccessToken(): void {
 }
 
 /**
- * Fetch user profile from QSoftware backend
+ * Get mock user profile for development
  */
-async function fetchUserProfile(accessToken: string): Promise<UserProfile | null> {
+function getMockUserProfile(): UserProfile | null {
+  const mockUser = MOCK_USERS[MOCK_USER_ROLE]
+
+  if (!mockUser) {
+    console.error(`Invalid mock user role: ${MOCK_USER_ROLE}. Using director as default.`)
+    return MOCK_USERS.director
+  }
+
+  console.log(`Mock authentication: Using ${MOCK_USER_ROLE} profile`, {
+    email: mockUser.email,
+    displayName: mockUser.displayName,
+    jobTitle: mockUser.jobTitle,
+  })
+
+  return mockUser
+}
+
+/**
+ * Fetch user profile from QSoftware API
+ */
+async function fetchUserProfileFromQSoftware(): Promise<UserProfile | null> {
   try {
-    const response = await fetch(`${QSOFTWARE_API_URL}/auth/users/me`, {
+    console.log('Fetching user profile from QSoftware API...')
+    const user = await QSoftware.getCurrentUserProfile()
+
+    if (user) {
+      console.log('QSoftware user profile retrieved:', { email: user.email, displayName: user.displayName })
+      return user
+    }
+
+    console.log('No user profile found in QSoftware')
+    return null
+  } catch (error) {
+    console.error('Error fetching user profile from QSoftware:', error)
+    return null
+  }
+}
+
+/**
+ * Fetch user profile from Microsoft Graph API (Fallback method)
+ */
+async function fetchUserProfileFromMicrosoft(): Promise<UserProfile | null> {
+  try {
+    const msal = await getMsalInstance()
+    const accounts = msal.getAllAccounts()
+
+    if (accounts.length === 0) {
+      console.log('No Microsoft accounts found')
+      return null
+    }
+
+    // Get access token for Microsoft Graph
+    const request = {
+      ...loginRequest,
+      scopes: ['User.Read'],
+      account: accounts[0],
+    }
+
+    let tokenResponse
+    try {
+      tokenResponse = await msal.acquireTokenSilent(request)
+    } catch (error) {
+      console.log('Silent token acquisition failed, trying popup...')
+      tokenResponse = await msal.acquireTokenPopup(request)
+    }
+
+    // Fetch user profile from Microsoft Graph
+    const response = await fetch('https://graph.microsoft.com/v1.0/me', {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${tokenResponse.accessToken}`,
       },
     })
 
     if (!response.ok) {
-      console.error('Failed to fetch user profile:', response.status, response.statusText)
+      console.error('Failed to fetch user profile from Microsoft Graph:', response.status, response.statusText)
       return null
     }
 
     const userData = await response.json()
 
     return {
-      id: userData.id || userData.employeeNumber,
-      email: userData.email || userData.businessEmail,
-      displayName: userData.fullName || userData.displayName,
-      jobTitle: userData.position || userData.jobTitle,
+      id: userData.id || userData.employeeId,
+      email: userData.mail || userData.userPrincipalName,
+      displayName: userData.displayName,
+      jobTitle: userData.jobTitle,
       department: userData.department,
     }
   } catch (error) {
-    console.error('Error fetching user profile from QSoftware API:', error)
+    console.error('Error fetching user profile from Microsoft Graph:', error)
     return null
   }
 }
@@ -87,24 +217,19 @@ async function fetchUserProfile(accessToken: string): Promise<UserProfile | null
  * Gets the current authenticated user
  */
 export async function getCurrentUser(): Promise<UserProfile | null> {
-  if (USE_MOCK_AUTH) {
-    console.log('Using mock authentication')
-    return {
-      id: 'dev-user-123',
-      email: 'pablo.aguirre@onqglobal.com',
-      displayName: 'Pablo Aguirre',
-      jobTitle: 'Director',
-      department: 'MIS',
-    }
+  // Mock authentication for development
+  if (AUTH_MODE === 'mock') {
+    return getMockUserProfile()
   }
 
-  const token = getStoredAccessToken()
-  if (!token) {
-    console.log('No access token found')
-    return null
+  // Use QSoftware API by default, fallback to Microsoft
+  if (AUTH_MODE === 'qsoftware' || QSoftware.isAuthenticated()) {
+    const user = await fetchUserProfileFromQSoftware()
+    if (user) return user
   }
 
-  return await fetchUserProfile(token)
+  // Fallback to Microsoft authentication
+  return await fetchUserProfileFromMicrosoft()
 }
 
 /**
@@ -208,8 +333,12 @@ export async function authenticateUser(): Promise<{
   isAuthorized: boolean
   role: UserRole
 }> {
-  console.log('=== Starting authentication ===')
-  console.log('USE_MOCK_AUTH:', USE_MOCK_AUTH)
+  const authModeLabel = AUTH_MODE === 'mock' ? 'MOCK' : AUTH_MODE === 'qsoftware' ? 'QSoftware' : 'Microsoft'
+  console.log(`=== Starting ${authModeLabel} authentication ===`)
+
+  if (AUTH_MODE === 'mock') {
+    console.log(`⚠️  MOCK MODE ACTIVE - Using mock user profile: ${MOCK_USER_ROLE}`)
+  }
 
   const user = await getCurrentUser()
   console.log('getCurrentUser result:', user ? { email: user.email, jobTitle: user.jobTitle, displayName: user.displayName } : 'null')
@@ -242,20 +371,20 @@ export async function authenticateUser(): Promise<{
  * Sign out the current user
  */
 export async function signOut(): Promise<void> {
-  if (USE_MOCK_AUTH) {
-    console.log('Mock user signed out')
-    return
-  }
-
   try {
-    const token = getStoredAccessToken()
-    if (token) {
-      // Call backend logout endpoint
-      await fetch(`${QSOFTWARE_API_URL}/auth/logout`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+    // Sign out from QSoftware if using QSoftware auth
+    if (QSoftware.isAuthenticated()) {
+      await QSoftware.logout()
+      console.log('Signed out from QSoftware')
+    }
+
+    // Sign out from Microsoft
+    const msal = await getMsalInstance()
+    const accounts = msal.getAllAccounts()
+
+    if (accounts.length > 0) {
+      await msal.logoutPopup({
+        account: accounts[0],
       })
     }
 
@@ -264,60 +393,161 @@ export async function signOut(): Promise<void> {
     console.log('User signed out successfully')
   } catch (error) {
     console.error('Sign out error:', error)
-    // Still delete token even if backend call fails
+    // Still delete tokens even if logout fails
     deleteAccessToken()
+    QSoftware.clearTokens()
   }
 }
 
 /**
- * Redirect to QSoftware backend for Microsoft authentication
+ * Login with Microsoft using OAuth redirect flow through QSoftware
+ * This will redirect the user to Microsoft login via QSoftware backend
  */
-export function loginWithMicrosoft(): void {
-  if (USE_MOCK_AUTH) {
-    console.warn('Mock auth is enabled, skipping Microsoft login')
+export async function loginWithMicrosoft(): Promise<void> {
+  console.log('Initiating Microsoft login with redirect...')
+
+  // Skip login for mock mode
+  if (AUTH_MODE === 'mock') {
+    console.log('Mock mode: Skipping Microsoft login - user will be authenticated on next page load')
     return
   }
 
-  // Redirect to QSoftware backend Microsoft auth endpoint
-  const redirectUrl = `${QSOFTWARE_API_URL}/auth/microsoft`
-  console.log('Redirecting to Microsoft login:', redirectUrl)
-  window.location.href = redirectUrl
+  if (AUTH_MODE === 'qsoftware') {
+    // Use QSoftware OAuth flow (redirects to Microsoft, then back)
+    QSoftware.initiateOAuthLogin()
+  } else {
+    // Fallback to MSAL redirect (no popup issues)
+    await loginWithMicrosoftRedirect()
+  }
 }
 
 /**
- * Verify token from URL query parameter (after redirect from backend)
+ * Login with Microsoft using MSAL redirect (Fallback method - no popup issues)
  */
-export async function verifyTokenFromUrl(): Promise<boolean> {
-  const urlParams = new URLSearchParams(window.location.search)
-  const accessToken = urlParams.get('accessToken')
-
-  if (!accessToken) {
-    return false
-  }
-
+async function loginWithMicrosoftRedirect(): Promise<void> {
   try {
-    // Verify token with backend
-    const response = await fetch(`${QSOFTWARE_API_URL}/auth/verify-token`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    })
+    console.log('Starting Microsoft login with redirect...')
+    const msal = await getMsalInstance()
 
-    if (response.ok) {
-      // Token is valid, store it
-      setAccessToken(accessToken)
+    // Use redirect for login (works better than popup, no COOP issues)
+    await msal.loginRedirect(loginRequest)
+    // User will be redirected to Microsoft login, then back to the app
+  } catch (error) {
+    console.error('Microsoft login redirect error:', error)
+    throw error
+  }
+}
 
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname)
+/**
+ * Handle redirect response after Microsoft login
+ */
+export async function handleRedirectResponse(): Promise<boolean> {
+  try {
+    const msal = await getMsalInstance()
+    const response = await msal.handleRedirectPromise()
+
+    if (response) {
+      console.log('Microsoft redirect login successful:', response.account?.username)
+
+      // If using QSoftware mode, authenticate with QSoftware using Microsoft token
+      if (AUTH_MODE === 'qsoftware' && response.accessToken) {
+        console.log('Authenticating with QSoftware API using Microsoft token...')
+        const result = await QSoftware.loginWithMicrosoftSSO(response.accessToken)
+
+        if (result.success) {
+          console.log('QSoftware SSO authentication successful')
+          return true
+        } else {
+          console.warn('QSoftware SSO failed, falling back to Microsoft auth:', result.message)
+          // Continue with Microsoft auth even if QSoftware fails
+          return true
+        }
+      }
 
       return true
     }
 
     return false
   } catch (error) {
-    console.error('Error verifying token:', error)
+    console.error('Error handling redirect response:', error)
+    return false
+  }
+}
+
+/**
+ * Handle OAuth callback after redirect from QSoftware
+ * Call this when the user returns from Microsoft login
+ */
+export async function handleOAuthCallback(): Promise<boolean> {
+  try {
+    console.log('Handling OAuth callback...')
+    const result = QSoftware.handleOAuthCallback()
+
+    if (result.success) {
+      console.log('OAuth callback successful, tokens stored')
+      return true
+    } else {
+      console.error('OAuth callback failed:', result.error)
+      return false
+    }
+  } catch (error) {
+    console.error('Error handling OAuth callback:', error)
+    return false
+  }
+}
+
+/**
+ * Check if user is already logged in
+ */
+export async function checkExistingSession(): Promise<boolean> {
+  try {
+    // Mock mode always has a session
+    if (AUTH_MODE === 'mock') {
+      console.log('Mock mode: Session active')
+      return true
+    }
+
+    // First check QSoftware session
+    if (QSoftware.isAuthenticated()) {
+      const user = await QSoftware.getCurrentUserProfile()
+      if (user) {
+        console.log('QSoftware session found for:', user.email)
+        return true
+      }
+    }
+
+    // Fallback to MSAL session
+    const msal = await getMsalInstance()
+    const accounts = msal.getAllAccounts()
+    if (accounts && accounts.length > 0) {
+      console.log('Microsoft session found for:', accounts[0]?.username)
+      return true
+    }
+
+    return false
+  } catch (error) {
+    console.error('Error checking existing session:', error)
+    return false
+  }
+}
+
+/**
+ * Login with email and password (QSoftware)
+ */
+export async function loginWithCredentials(email: string, password: string): Promise<boolean> {
+  try {
+    console.log('Starting QSoftware login with credentials...')
+    const result = await QSoftware.loginWithCredentials(email, password)
+
+    if (result.success) {
+      console.log('QSoftware login successful:', result.user?.email)
+      return true
+    } else {
+      console.error('QSoftware login failed:', result.message)
+      return false
+    }
+  } catch (error) {
+    console.error('Credentials login error:', error)
     return false
   }
 }
@@ -326,9 +556,12 @@ export async function verifyTokenFromUrl(): Promise<boolean> {
  * Helper function to get access token for API calls
  */
 export async function getAccessToken(): Promise<string | null> {
-  if (USE_MOCK_AUTH) {
-    return 'mock-token'
+  // First try to get QSoftware token
+  const qsoftwareToken = QSoftware.getStoredToken()
+  if (qsoftwareToken) {
+    return qsoftwareToken
   }
 
+  // Fallback to stored access token
   return getStoredAccessToken()
 }
