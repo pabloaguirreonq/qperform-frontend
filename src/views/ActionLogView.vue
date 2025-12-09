@@ -132,17 +132,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useUserRole } from '../composables/useUserRole'
-import { usePerformanceFilters } from '../composables/usePerformanceFilters'
-import { fetchActionLog } from '../services/api'
-import type { ActionLog } from '../types'
+import { ref, onMounted, watch, computed } from 'vue'
+import { useUserRole } from '@/composables/useUserRole'
+import { usePerformanceFilters } from '@/composables/usePerformanceFilters'
+import { fetchActionLog } from '@/services/api'
+import type { ActionLog } from '@/types'
 import Button from 'primevue/button'
 import ProgressSpinner from 'primevue/progressspinner'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
-import FilterPopover from '../components/FilterPopover.vue'
+import FilterPopover from '@/components/FilterPopover.vue'
 
 // User role and permissions
 const { role, user, assignedClients, teamMembers } = useUserRole()

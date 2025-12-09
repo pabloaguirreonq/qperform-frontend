@@ -4,7 +4,7 @@
       <!-- Logo Section -->
       <div class="logo-section">
         <img
-          src="https://onq.global/wp-content/uploads/2025/05/OnQ_Logo_4Color-400x90.webp"
+          src="/onq-logo.jpg"
           alt="OnQ Global Logo"
           class="welcome-logo"
         />

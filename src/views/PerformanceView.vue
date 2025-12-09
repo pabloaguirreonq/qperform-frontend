@@ -46,8 +46,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import Header from '../components/Header.vue'
-import { useUserRole } from '../composables/useUserRole'
+import Header from '@/components/Header.vue'
+import { useUserRole } from '@/composables/useUserRole'
 
 const router = useRouter()
 const { role, user, canTakeAction, receivesNotifications } = useUserRole()

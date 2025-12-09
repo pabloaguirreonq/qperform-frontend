@@ -236,9 +236,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useUserRole } from '../composables/useUserRole'
-import { useRoleBasedFiltering } from '../composables/useRoleBasedFiltering'
-import { usePerformanceFilters } from '../composables/usePerformanceFilters'
+import { useUserRole } from '@/composables/useUserRole'
+import { useRoleBasedFiltering } from '@/composables/useRoleBasedFiltering'
+import { usePerformanceFilters } from '@/composables/usePerformanceFilters'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Avatar from 'primevue/avatar'
@@ -246,10 +246,10 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
 import ProgressSpinner from 'primevue/progressspinner'
-import FilterPopover from '../components/FilterPopover.vue'
-import PerformanceScoreBadge from '../components/PerformanceScoreBadge.vue'
-import RecommendationsDialog from '../components/RecommendationsDialog.vue'
-import TakeActionDialog from '../components/TakeActionDialog.vue'
+import FilterPopover from '@/components/FilterPopover.vue'
+import PerformanceScoreBadge from '@/components/PerformanceScoreBadge.vue'
+import RecommendationsDialog from '@/components/RecommendationsDialog.vue'
+import TakeActionDialog from '@/components/TakeActionDialog.vue'
 import {
   fetchPerformanceData,
   fetchFilters,
@@ -258,12 +258,12 @@ import {
   groupByWeek,
   calculateAgentMonthlyResults,
   generateRecommendation
-} from '../services/api'
+} from '@/services/api'
 import type {
   PerformanceData,
   ActionLog,
   ClientSummaryData
-} from '../types'
+} from '@/types'
 
 // User role and permissions with enhanced Microsoft API integration
 const { role, user, canTakeAction, assignedClients, teamMembers } = useUserRole()

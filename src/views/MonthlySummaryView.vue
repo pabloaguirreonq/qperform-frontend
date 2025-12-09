@@ -106,16 +106,16 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useUserRole } from '../composables/useUserRole'
-import { usePerformanceFilters } from '../composables/usePerformanceFilters'
-import { fetchMonthlySummary } from '../services/api'
-import type { MonthlySummaryResponse } from '../types'
+import { useUserRole } from '@/composables/useUserRole'
+import { usePerformanceFilters } from '@/composables/usePerformanceFilters'
+import { fetchMonthlySummary } from '@/services/api'
+import type { MonthlySummaryResponse } from '@/types'
 import Button from 'primevue/button'
 import ProgressSpinner from 'primevue/progressspinner'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
-import FilterPopover from '../components/FilterPopover.vue'
+import FilterPopover from '@/components/FilterPopover.vue'
 
 // User role and permissions
 const { role, assignedClients } = useUserRole()
